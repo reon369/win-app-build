@@ -1,0 +1,1441 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>シフト自動生成ツール【1階】</title>
+<style>
+  body {
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+    margin: 0;
+    padding: 24px;
+    background: #f7f6f3;
+    color: #222;
+  }
+  h1 {
+    font-size: 20px;
+    font-weight: 500;
+    margin: 0 0 16px;
+  }
+  h2 {
+    font-size: 16px;
+    font-weight: 500;
+    margin: 0 0 8px;
+  }
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  .panel {
+    background: #fff;
+    border: 1px solid #e0ddd6;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .staff-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .staff-row input[type="text"] {
+    width: 100px;
+    padding: 4px 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+  }
+  .staff-row label {
+    font-size: 13px;
+    color: #555;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .staff-row button {
+    border: none;
+    background: #eee;
+    border-radius: 4px;
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+  }
+  button.main-btn {
+    border: 1px solid #ccc;
+    background: #fff;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  button.main-btn:hover {
+    background: #f0f0f0;
+  }
+  .slider-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+  .slider-row label {
+    min-width: 130px;
+    font-size: 14px;
+    color: #555;
+  }
+  .slider-row input[type="range"] {
+    flex: 1;
+  }
+  .slider-out {
+    min-width: 50px;
+    font-size: 14px;
+    font-weight: 500;
+  }
+  table {
+    border-collapse: collapse;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  th, td {
+    border: 1px solid #ddd;
+    padding: 4px 6px;
+    text-align: center;
+    min-width: 28px;
+  }
+  th {
+    background: #eee;
+    font-weight: 500;
+  }
+  td.name, th.name {
+    position: sticky;
+    left: 0;
+    background: #f5f5f5;
+    font-weight: 500;
+    text-align: left;
+    min-width: 70px;
+  }
+  .table-wrap {
+    overflow-x: auto;
+  }
+  .warning {
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 13px;
+    margin-bottom: 16px;
+  }
+  .warning.ok {
+    background: #e6f4ea;
+    color: #1e6b3a;
+  }
+  .warning.bad {
+    background: #fdecea;
+    color: #a33;
+  }
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 10px;
+  }
+  .summary-card {
+    background: #f5f5f5;
+    border-radius: 6px;
+    padding: 10px 12px;
+  }
+  .summary-card .label {
+    font-size: 13px;
+    color: #666;
+    margin-bottom: 4px;
+  }
+  .summary-card .value {
+    font-size: 16px;
+    font-weight: 500;
+  }
+  .summary-card .sub {
+    font-size: 12px;
+    color: #888;
+    margin-top: 2px;
+  }
+  .cell-夜 { background: #cfe8ff; }
+  .cell-明 { background: #fff3cd; }
+  .cell-休 { background: #e8e8e8; }
+  .cell-友 { background: #d6f5e3; }
+  .cell-日 { background: #f3e8fd; }
+  .req-off { background: #e0e0e0; font-weight: 600; }
+  .req-shift { background: #fff3e0; border: 1px solid #f0a830; font-weight: 600; }
+  /* 生成結果テーブルの希望マーク */
+  .cell-req-off {
+    background: #e0e0e0 !important;
+    font-weight: 700;
+    position: relative;
+  }
+  .cell-req-shift {
+    outline: 2px solid #f0a830 !important;
+    outline-offset: -2px;
+    font-weight: 700;
+    position: relative;
+  }
+  .cell-req-off::after,
+  .cell-req-shift::after {
+    content: '希';
+    position: absolute;
+    top: 0;
+    right: 1px;
+    font-size: 8px;
+    line-height: 1;
+    color: #888;
+    font-weight: 400;
+  }
+  .cell-req-shift::after {
+    color: #e67e22;
+  }
+
+  .cell-sun { background: #fde7e7; color: #a33; }
+  .cell-sat { background: #e7f0fd; color: #345; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>シフト自動生成ツール(試作版)</h1>
+
+  <div class="panel">
+    <h2>スタッフ設定</h2>
+    <div id="staff-list"></div>
+    <button class="main-btn" id="add-staff" style="margin-top:8px;">＋ スタッフを追加</button>
+  </div>
+
+  <div class="panel">
+    <h2>対象月</h2>
+    <div class="slider-row">
+      <label>年</label>
+      <input type="number" id="target-year" value="2026" min="2000" max="2100" style="width:80px;">
+      <label style="min-width:auto; margin-left:12px;">月</label>
+      <input type="number" id="target-month" value="6" min="1" max="12" style="width:60px;">
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>公休希望・勤務希望</h2>
+    <div style="font-size:12px; color:#666; margin-bottom:8px;">
+      セルをクリックすると希望を選べます(休み希望 / シフト希望 / 指定なし)。休み希望=グレー、シフト希望=オレンジ。
+    </div>
+    <div id="request-grid" class="table-wrap"></div>
+  </div>
+
+  <div class="panel">
+    <h2>設定</h2>
+    <div class="slider-row">
+      <label>夜勤の間隔(目安)</label>
+      <input type="range" min="2" max="10" step="1" value="6" id="min-interval">
+      <span class="slider-out" id="min-interval-out">6 日</span>
+    </div>
+    <div class="slider-row">
+      <label>連勤の上限</label>
+      <input type="range" min="3" max="6" step="1" value="4" id="max-consecutive">
+      <span class="slider-out" id="max-consecutive-out">4 日</span>
+    </div>
+    <div class="slider-row">
+      <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+        <input type="checkbox" id="use-a2-toggle" style="width:auto;">
+        B → A2 (7:00-16:00) に切替
+      </label>
+    </div>
+    <div class="slider-row">
+      <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+        <input type="checkbox" id="use-support-toggle" style="width:auto;">
+        友A・友Pを使わない
+      </label>
+    </div>
+  </div>
+
+  <div style="margin-bottom: 16px;">
+    <button class="main-btn" id="generate-btn">シフトを生成</button>
+    <button class="main-btn" id="export-btn">CSVをダウンロード</button>
+    <button class="main-btn" onclick="clearData()" style="background:#e74c3c;">データをリセット</button>
+    <span id="save-indicator" style="font-size:12px; color:#888; margin-left:8px;"></span>
+  </div>
+
+  <div id="warnings"></div>
+
+  <div id="result-wrap" style="display:none;">
+    <div class="panel">
+      <h2 id="result-title">生成結果</h2>
+      <div class="table-wrap">
+        <div id="result-table"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>集計</h2>
+      <div class="summary-grid" id="summary-grid"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+let DAYS = 30;
+
+function getDaysInMonth(year, month) {
+  return new Date(year, month, 0).getDate();
+}
+function getWeekday(year, month, day) {
+  // 0=Sun, 6=Sat
+  return new Date(year, month - 1, day).getDay();
+}
+const WEEKDAY_LABELS = ['日', '月', '火', '水', '木', '金', '土'];
+const CORE_SHIFTS_BASE = {
+  "早": "早番 6:45-15:45",
+  "B": "B 7:30-16:30",
+  "C": "C 8:00-17:00",
+  "F": "F 10:00-19:00",
+  "P": "P 12:00-21:00"
+};
+const A2_LABEL = "A2 7:00-16:00";
+
+// useA2が true なら "B" を "A2" に置き換えたコア必須シフト一覧を返す
+function getCoreShifts() {
+  const useA2 = document.getElementById('use-a2-toggle')?.checked;
+  if (!useA2) return { ...CORE_SHIFTS_BASE };
+  const { B, ...rest } = CORE_SHIFTS_BASE;
+  return { ...rest, "A2": A2_LABEL };
+}
+
+let CORE_SHIFTS = { ...CORE_SHIFTS_BASE };
+
+const SUPPORT_SHIFTS = { "友A": "友A応援", "友P": "友P応援" };
+const AKE = "明";
+const YASUMI = "休";
+const NICHI_SHIFT_CODE = "日";
+const MAX_OFF_DAYS = 9; // 休みの上限(これを超える分は「日」に変換)
+
+
+// 固定勤務のUI用定数
+const WEEKDAY_NAMES = ['日', '月', '火', '水', '木', '金', '土'];
+const FIXED_SHIFT_OPTIONS = ['', '早', 'B', 'C', 'F', 'P', '友A', '友P', '休'];
+
+// シフトごとの勤務時間(時間)。月168時間が目安。
+const SHIFT_HOURS = {
+  "夜": 12,
+  [AKE]: 0,
+  [YASUMI]: 0,
+  "早": 8, "B": 8, "A2": 8, "C": 8, "F": 8, "P": 8,
+  "友A": 8, "友P": 8,
+  [NICHI_SHIFT_CODE]: 8,
+};
+const TARGET_MONTHLY_HOURS = 168;
+
+function calcMonthlyHours(schedule, name) {
+  let total = 0;
+  for (let d = 1; d <= DAYS; d++) {
+    const code = schedule[name][d];
+    total += SHIFT_HOURS[code] !== undefined ? SHIFT_HOURS[code] : 0;
+  }
+  return total;
+}
+
+let staffData = [
+  { name: "山田",  canNight: true,  years: 5,  requests: {}, weeklyPattern: null },
+  { name: "佐藤",  canNight: true,  years: 3,  requests: {}, weeklyPattern: null },
+  { name: "鈴木",  canNight: true,  years: 1,  requests: {}, weeklyPattern: null },
+  { name: "田中",  canNight: true,  years: 7,  requests: {}, weeklyPattern: null },
+  { name: "伊藤",  canNight: true,  years: 2,  requests: {}, weeklyPattern: null },
+  { name: "渡辺",  canNight: true,  years: 4,  requests: {}, weeklyPattern: null },
+  { name: "高橋",  canNight: true,  years: 1,  requests: {}, weeklyPattern: null },
+  { name: "中村",  canNight: true,  years: 6,  requests: {}, weeklyPattern: null },
+  { name: "小林",  canNight: true,  years: 2,  requests: {}, weeklyPattern: null },
+  { name: "加藤",  canNight: true,  years: 8,  requests: {}, weeklyPattern: null },
+  { name: "松本",  canNight: true,  years: 3,  requests: {}, weeklyPattern: null },
+  { name: "井上",  canNight: false, years: 5,  requests: {}, weeklyPattern: null },
+];
+
+const JUNIOR_THRESHOLD = 2; // この年数以下を「若手」とみなす
+
+let lastSchedule = null;
+let lastStaff = null;
+
+function generateSchedule() {
+  const targetYear = parseInt(document.getElementById('target-year').value, 10);
+  const targetMonth = parseInt(document.getElementById('target-month').value, 10);
+  DAYS = getDaysInMonth(targetYear, targetMonth);
+  CORE_SHIFTS = getCoreShifts();
+  const minInterval = parseInt(document.getElementById('min-interval').value, 10);
+  const maxConsecutive = parseInt(document.getElementById('max-consecutive').value, 10);
+  const staffList = staffData;
+  const nightStaff = staffData.filter(s => s.canNight);
+
+
+  // params: staffList, nightStaff, minInterval, maxConsecutive already provided
+  const schedule = {};
+  // staffList(日勤)とnightStaff(夜勤)両方のスケジュール行を初期化
+  const allStaffForSchedule = [...staffList];
+  nightStaff.forEach(s => { if (!allStaffForSchedule.find(x => x.name === s.name)) allStaffForSchedule.push(s); });
+  allStaffForSchedule.forEach(s => { schedule[s.name] = Array(DAYS + 1).fill(''); });
+
+
+
+  // 公休希望・勤務希望を先に確定(固定枠として扱う)
+  staffList.forEach(s => {
+    const name = s.name;
+    Object.keys(s.requests || {}).forEach(dayStr => {
+      const day = parseInt(dayStr, 10);
+      if (day < 1 || day > DAYS) return;
+      const req = s.requests[day];
+      if (req === 'off') {
+        schedule[name][day] = YASUMI;
+      } else {
+        schedule[name][day] = req;
+        if (req === '夜') {
+          if (day + 1 <= DAYS && schedule[name][day + 1] === '') schedule[name][day + 1] = AKE;
+          if (day + 2 <= DAYS && schedule[name][day + 2] === '') schedule[name][day + 2] = YASUMI;
+        }
+      }
+    });
+  });
+
+  // 夜勤割り当て(逆算方式)
+  const nightCandidates = nightStaff.filter(s => s.canNight && !s.weeklyPattern);
+  const n = nightCandidates.length;
+  const base = n ? Math.floor(DAYS / n) : 0;
+  const remainder = n ? DAYS % n : 0;
+  const target = {};
+  nightCandidates.forEach((s, i) => {
+    target[s.name] = base + (i < remainder ? 1 : 0);
+  });
+
+  const nightDays = {};
+  const nightCount = {};
+  nightCandidates.forEach(s => {
+    const preDays = [];
+    for (let d = 1; d <= DAYS; d++) {
+      if (schedule[s.name][d] === '夜') preDays.push(d);
+    }
+    nightDays[s.name] = preDays;
+    nightCount[s.name] = preDays.length;
+  });
+
+  for (let day = 1; day <= DAYS; day++) {
+    let candidates = [];
+    let fallback = [];
+    for (const s of nightCandidates) {
+      if (schedule[s.name][day] !== '') continue;
+      if (hasTooManyConsecutive(schedule, s.name, day, maxConsecutive)) continue;
+      const last = nightDays[s.name].length ? nightDays[s.name][nightDays[s.name].length - 1] : null;
+      if (last !== null && (day - last) < minInterval) {
+        fallback.push(s);
+      } else {
+        candidates.push(s);
+      }
+    }
+    let pool = candidates.length ? candidates : fallback;
+    if (!pool.length) continue;
+
+    pool.sort((a, b) => {
+      const shortfallA = target[a.name] - nightCount[a.name];
+      const shortfallB = target[b.name] - nightCount[b.name];
+      if (shortfallA !== shortfallB) return shortfallB - shortfallA;
+      const la = nightDays[a.name].length ? nightDays[a.name][nightDays[a.name].length - 1] : -999;
+      const lb = nightDays[b.name].length ? nightDays[b.name][nightDays[b.name].length - 1] : -999;
+      const ia = day - la, ib = day - lb;
+      if (ib !== ia) return ib - ia;
+      return Math.random() - 0.5;
+    });
+    const chosen = pool[0];
+    schedule[chosen.name][day] = '夜';
+    nightCount[chosen.name]++;
+    nightDays[chosen.name].push(day);
+    if (day + 1 <= DAYS) schedule[chosen.name][day + 1] = AKE;
+    if (day + 2 <= DAYS) schedule[chosen.name][day + 2] = YASUMI;
+  }
+
+  // 日勤割り当て
+  for (let day = 1; day <= DAYS; day++) {
+    for (const s of staffList) {
+      if (schedule[s.name][day] === '' && hasTooManyConsecutive(schedule, s.name, day, maxConsecutive)) {
+        schedule[s.name][day] = YASUMI;
+      }
+    }
+
+    let free = staffList.filter(s => schedule[s.name][day] === '');
+    for (let i = free.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [free[i], free[j]] = [free[j], free[i]];
+    }
+
+    const coreKeys = Object.keys(CORE_SHIFTS);
+    for (let i = coreKeys.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [coreKeys[i], coreKeys[j]] = [coreKeys[j], coreKeys[i]];
+    }
+    coreKeys.forEach(code => {
+      if (!free.length) return;
+
+      // 希望によりこのシフトが既に埋まっていればスキップ
+      const alreadyFilled = staffList.some(s => schedule[s.name][day] === code);
+      if (alreadyFilled) return;
+
+      // 前日も同じシフトだった人を後回しにする(連続シフトを避ける)
+      let idx = -1;
+      for (let i = free.length - 1; i >= 0; i--) {
+        if (schedule[free[i].name][day - 1] !== code) {
+          idx = i;
+          break;
+        }
+      }
+      if (idx === -1) idx = free.length - 1; // 全員前日同じシフトなら仕方なく選ぶ
+
+      const chosen = free.splice(idx, 1)[0];
+      schedule[chosen.name][day] = code;
+    });
+
+    // 友A・友P: 1階は偶数日に1人ずつ割り当て(「友A・友Pを使わない」がONなら割り当てしない)
+    const useSupport = !document.getElementById('use-support-toggle')?.checked;
+    if (day % 2 === 0 && useSupport) {
+      const supportKeys = Object.keys(SUPPORT_SHIFTS);
+      for (let i = supportKeys.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [supportKeys[i], supportKeys[j]] = [supportKeys[j], supportKeys[i]];
+      }
+      supportKeys.forEach(code => {
+        if (!free.length) return;
+        let idx = -1;
+        for (let i = free.length - 1; i >= 0; i--) {
+          if (schedule[free[i].name][day - 1] !== code) { idx = i; break; }
+        }
+        if (idx === -1) idx = free.length - 1;
+        const chosen = free.splice(idx, 1)[0];
+        schedule[chosen.name][day] = code;
+      });
+    }
+
+    free.forEach(s => { schedule[s.name][day] = YASUMI; });
+  }
+
+  // 連勤上限違反の修正(希望で指定された日は崩さない)
+  staffList.forEach(s => {
+    const name = s.name;
+    const isRequested = (day) => s.requests && s.requests[day] !== undefined;
+    let run = 0;
+    for (let day = 1; day <= DAYS; day++) {
+      const code = schedule[name][day];
+      if (isResting(code)) { run = 0; continue; }
+      run++;
+      if (run > maxConsecutive) {
+        if (isRequested(day)) {
+          // 希望で固定された日は崩さず、違反として警告対象に残す
+          continue;
+        }
+        const oldCode = code;
+        schedule[name][day] = YASUMI;
+        run = 0;
+
+        if (CORE_SHIFTS[oldCode] || SUPPORT_SHIFTS[oldCode]) {
+          for (const other of staffList) {
+            if (other.name === name) continue;
+            if (schedule[other.name][day] === YASUMI && !hasTooManyConsecutive(schedule, other.name, day, maxConsecutive)) {
+              schedule[other.name][day] = oldCode;
+              break;
+            }
+          }
+        } else if (oldCode === '夜') {
+          // 元の人の翌日が「明」だった場合は、代役の有無に関わらず休みに戻す
+          // (夜勤がなくなった以上、対応する「明」は成立しないため)
+          if (day + 1 <= DAYS && schedule[name][day + 1] === AKE) {
+            schedule[name][day + 1] = YASUMI;
+          }
+
+          let cands = staffList.filter(o => {
+            if (o.name === name || !o.canNight) return false;
+            if (schedule[o.name][day] !== YASUMI) return false;
+            if (hasTooManyConsecutive(schedule, o.name, day, maxConsecutive)) return false;
+            // 翌日・翌々日が空き(未確定 or 休み)であることを確認(明け・休みをセットするため)
+            const d1ok = day + 1 > DAYS || schedule[o.name][day + 1] === '' || schedule[o.name][day + 1] === YASUMI;
+            const d2ok = day + 2 > DAYS || schedule[o.name][day + 2] === '' || schedule[o.name][day + 2] === YASUMI;
+            return d1ok && d2ok;
+          });
+          if (cands.length) {
+            cands.sort((a, b) => {
+              const diff = nightTotal(schedule, a.name) - nightTotal(schedule, b.name);
+              if (diff !== 0) return diff;
+              return Math.random() - 0.5;
+            });
+            const oname = cands[0].name;
+            schedule[oname][day] = '夜';
+            // 代役の翌日・翌々日に明け・休みを正しくセットする(空いている場合のみ)
+            if (day + 1 <= DAYS && (schedule[oname][day + 1] === '' || schedule[oname][day + 1] === YASUMI)) {
+              schedule[oname][day + 1] = AKE;
+            }
+            if (day + 2 <= DAYS && (schedule[oname][day + 2] === '' || schedule[oname][day + 2] === YASUMI)) {
+              schedule[oname][day + 2] = YASUMI;
+            }
+          }
+        }
+      }
+    }
+  });
+
+  // 休みの総数をできるだけ均等にする
+  function offCount(name) {
+    let c = 0;
+    for (let d = 1; d <= DAYS; d++) if (schedule[name][d] === YASUMI) c++;
+    return c;
+  }
+
+  for (let iter = 0; iter < staffList.length * DAYS; iter++) {
+    const counts = staffList.map(s => ({ name: s.name, count: offCount(s.name) }));
+    counts.sort((a, b) => b.count - a.count);
+    const most = counts[0];
+    const least = counts[counts.length - 1];
+
+    if (most.count - least.count < 2) break;
+
+    let moved = false;
+    const mostStaff = staffList.find(s => s.name === most.name);
+    for (let day = 1; day <= DAYS; day++) {
+      if (schedule[most.name][day] !== YASUMI) continue;
+      if (mostStaff.requests && mostStaff.requests[day] !== undefined) continue;
+      const leastStaff = staffList.find(s => s.name === least.name);
+      if (leastStaff.requests && leastStaff.requests[day] !== undefined) continue;
+      const leastCode = schedule[least.name][day];
+      if (!CORE_SHIFTS[leastCode]) continue;
+
+      schedule[most.name][day] = leastCode;
+      schedule[least.name][day] = YASUMI;
+
+      let ok = true;
+      if (hasTooManyConsecutive(schedule, most.name, day, maxConsecutive)) ok = false;
+      if (ok && day - 1 >= 1 && schedule[most.name][day - 1] === leastCode) ok = false;
+      if (ok && day + 1 <= DAYS && schedule[most.name][day + 1] === leastCode) ok = false;
+
+      if (ok) {
+        moved = true;
+        break;
+      } else {
+        schedule[most.name][day] = YASUMI;
+        schedule[least.name][day] = leastCode;
+      }
+    }
+    if (!moved) break;
+  }
+
+  // 3連休以上を、休み総数を変えずに分散させる
+  const MAX_OFF_STREAK = 2;
+  for (const s of staffList) {
+    const nameA = s.name;
+    let run = 0;
+    for (let day = 1; day <= DAYS; day++) {
+      if (schedule[nameA][day] === YASUMI) run++; else run = 0;
+      if (run <= MAX_OFF_STREAK) continue;
+
+      const dayA = day;
+      const staffA = s;
+      if (staffA.requests && staffA.requests[dayA] !== undefined) continue; // 希望休はそのまま尊重
+      let found = false;
+
+      for (const other of staffList) {
+        const nameB = other.name;
+        if (nameB === nameA) continue;
+        if (!CORE_SHIFTS[schedule[nameB][dayA]]) continue;
+        if (other.requests && other.requests[dayA] !== undefined) continue; // Bの希望勤務は崩さない
+        const codeA = schedule[nameB][dayA];
+
+        for (let dayB = 1; dayB <= DAYS; dayB++) {
+          if (dayB === dayA) continue;
+          if (schedule[nameB][dayB] !== YASUMI) continue;
+          if (other.requests && other.requests[dayB] !== undefined) continue; // Bの希望休はそのまま尊重
+          const prevOff = (dayB - 1 >= 1 && schedule[nameB][dayB - 1] === YASUMI);
+          const nextOff = (dayB + 1 <= DAYS && schedule[nameB][dayB + 1] === YASUMI);
+          if (prevOff || nextOff) continue;
+          if (!CORE_SHIFTS[schedule[nameA][dayB]]) continue;
+          if (staffA.requests && staffA.requests[dayB] !== undefined) continue; // Aの希望勤務は崩さない
+          const codeB = schedule[nameA][dayB];
+
+          schedule[nameA][dayA] = codeA;
+          schedule[nameB][dayA] = YASUMI;
+          schedule[nameA][dayB] = YASUMI;
+          schedule[nameB][dayB] = codeB;
+
+          let ok = true;
+          for (const [nm, dy, cd] of [[nameA, dayA, codeA], [nameB, dayB, codeB]]) {
+            if (hasTooManyConsecutive(schedule, nm, dy, maxConsecutive)) { ok = false; break; }
+            if (dy - 1 >= 1 && schedule[nm][dy - 1] === cd) { ok = false; break; }
+            if (dy + 1 <= DAYS && schedule[nm][dy + 1] === cd) { ok = false; break; }
+          }
+
+          if (ok) {
+            // Bのday_aが新たに3連休以上を作らないか確認
+            let bRun = 0;
+            for (let dd = 1; dd <= DAYS; dd++) {
+              if (schedule[nameB][dd] === YASUMI) {
+                bRun++;
+                if (bRun > MAX_OFF_STREAK) { ok = false; break; }
+              } else {
+                bRun = 0;
+              }
+            }
+          }
+
+          if (ok) {
+            found = true;
+            run = 0;
+            break;
+          } else {
+            schedule[nameA][dayA] = YASUMI;
+            schedule[nameB][dayA] = codeA;
+            schedule[nameA][dayB] = codeB;
+            schedule[nameB][dayB] = YASUMI;
+          }
+        }
+        if (found) break;
+      }
+    }
+  }
+
+  // 夜勤×P(遅番)が両方若手にならないよう調整(可能な範囲で)
+  function isJunior(name) {
+    const s = staffList.find(s => s.name === name);
+    return s && s.years <= JUNIOR_THRESHOLD;
+  }
+
+  for (let day = 1; day <= DAYS; day++) {
+    const nightPerson = staffList.find(s => schedule[s.name][day] === '夜');
+    const pPerson = staffList.find(s => schedule[s.name][day] === 'P');
+    if (!nightPerson || !pPerson) continue;
+    if (!isJunior(nightPerson.name) || !isJunior(pPerson.name)) continue;
+
+    const candidates = staffList.filter(s =>
+      s.name !== pPerson.name &&
+      s.name !== nightPerson.name &&
+      !isJunior(s.name) &&
+      CORE_SHIFTS[schedule[s.name][day]]
+    );
+
+    if (candidates.length) {
+      const other = candidates[Math.floor(Math.random() * candidates.length)];
+      const tmp = schedule[other.name][day];
+      schedule[other.name][day] = schedule[pPerson.name][day];
+      schedule[pPerson.name][day] = tmp;
+    }
+  }
+
+  // 月間勤務時間を168時間に近づける微調整(±4hの許容範囲を目指す)
+  const HOUR_TOLERANCE = 4;
+  function hoursOf(name) {
+    return calcMonthlyHours(schedule, name);
+  }
+  function isRequestedDay(s, day) {
+    return s.requests && s.requests[day] !== undefined;
+  }
+
+  // 注: 「日」シフト(任意勤務)への自動変換は行わない。
+  // 25人・2階構成では余剰休みが多く、自動変換すると「日」が大量発生するため。
+  // 時間の過不足は集計カードで確認し、必要な場合は手動で「日」に変更すること。
+
+  // 超過している人を、代役が見つかる場合のみ休みに変換
+  staffList.forEach(s => {
+    const name = s.name;
+    let guard = 0;
+    while (hoursOf(name) > TARGET_MONTHLY_HOURS + HOUR_TOLERANCE && guard < DAYS) {
+      guard++;
+
+      // 「日」シフトの日を優先的に削る
+      let nichiDays = [];
+      for (let d = 1; d <= DAYS; d++) {
+        if (schedule[name][d] === NICHI_SHIFT_CODE && !isRequestedDay(s, d)) nichiDays.push(d);
+      }
+      if (nichiDays.length) {
+        schedule[name][nichiDays[0]] = YASUMI;
+        continue;
+      }
+
+      // 「日」がなければ、代役(時間が少ない人優先)が見つかるコア必須シフトの日を削る
+      let coreDays = [];
+      for (let d = 1; d <= DAYS; d++) {
+        if (CORE_SHIFTS[schedule[name][d]] && !isRequestedDay(s, d)) coreDays.push(d);
+      }
+      let converted = false;
+      for (const d of coreDays) {
+        const code = schedule[name][d];
+        let dayCandidates = staffList.filter(other =>
+          other.name !== name &&
+          schedule[other.name][d] === YASUMI &&
+          !hasTooManyConsecutive(schedule, other.name, d, maxConsecutive)
+        );
+        dayCandidates.sort((a, b) => hoursOf(a.name) - hoursOf(b.name));
+        for (const other of dayCandidates) {
+          if (hoursOf(other.name) >= TARGET_MONTHLY_HOURS + HOUR_TOLERANCE) continue;
+          schedule[other.name][d] = code;
+          schedule[name][d] = YASUMI;
+          converted = true;
+          break;
+        }
+        if (converted) break;
+      }
+      if (!converted) break;
+    }
+  });
+
+
+  // 168時間調整: 不足分を「日」シフトで補う(1人あたり最大5回まで)
+  const NICHI_TOLERANCE = 4;
+  const MAX_NICHI = 5;
+  staffList.forEach(s => {
+    const name = s.name;
+    const isRequestedDay = (d) => s.requests && s.requests[d] !== undefined;
+    let nichiAdded = 0;
+    let guard = 0;
+    while (calcMonthlyHours(schedule, name) < TARGET_MONTHLY_HOURS - NICHI_TOLERANCE
+           && nichiAdded < MAX_NICHI && guard < DAYS) {
+      guard++;
+      // 明け隣接でない休み日を優先
+      const offDays = [];
+      for (let d = 1; d <= DAYS; d++) {
+        if (schedule[name][d] !== YASUMI) continue;
+        if (isRequestedDay(d)) continue;
+        const adjAke = (d-1>=1 && schedule[name][d-1]===AKE) || (d+1<=DAYS && schedule[name][d+1]===AKE);
+        offDays.push({ d, adjAke });
+      }
+      offDays.sort((a, b) => a.adjAke - b.adjAke);
+      let converted = false;
+      for (const { d } of offDays) {
+        // 前後の連勤チェック(前方向+後方向)
+        let run = 1;
+        for (let x=d-1; x>=1; x--) { if (isResting(schedule[name][x])) break; run++; }
+        for (let x=d+1; x<=DAYS; x++) { if (isResting(schedule[name][x])) break; run++; }
+        if (run > maxConsecutive) continue;
+        schedule[name][d] = NICHI_SHIFT_CODE;
+        nichiAdded++;
+        converted = true;
+        break;
+      }
+      if (!converted) break;
+    }
+  });
+
+
+  // 固定勤務(weeklyPattern)を最後に強制上書き(夜勤なし・明けなしが前提)
+  staffList.forEach(s => {
+    if (!s.weeklyPattern) return;
+    const name = s.name;
+    for (let d = 1; d <= DAYS; d++) {
+      const wd = getWeekday(targetYear, targetMonth, d);
+      const fixed = s.weeklyPattern[wd];
+      if (!fixed) continue;
+      schedule[name][d] = fixed === '休' ? YASUMI : fixed;
+    }
+  });
+
+  const finalWarnings = [];
+
+  // 固定勤務を最後に強制上書き(夜勤なし・明けなしの前提)
+  staffList.forEach(s => {
+    if (!s.weeklyPattern) return;
+    const name = s.name;
+    for (let d = 1; d <= DAYS; d++) {
+      const wd = getWeekday(targetYear, targetMonth, d);
+      const fixed = s.weeklyPattern[wd];
+      const code = fixed ? (fixed === '休' ? YASUMI : fixed) : null;
+
+      // 明け・夜勤が入っていればクリア(固定勤務の人は夜勤なし)
+      if (schedule[name][d] === AKE || schedule[name][d] === '夜') {
+        schedule[name][d] = YASUMI;
+      }
+
+      if (!code) continue;
+
+      const prevCode = schedule[name][d];
+
+      // 固定コードが既に別の人に割り当てられていれば、その人に別シフトを回す
+      if (CORE_SHIFTS[code] || SUPPORT_SHIFTS[code]) {
+        const conflict = staffList.find(o =>
+          o.name !== name && schedule[o.name][d] === code && !o.weeklyPattern
+        );
+        if (conflict) {
+          // conflictの人を空きシフト(その日未割当のコアシフト)に付け替える
+          const usedCodes = staffList.map(o => schedule[o.name][d]);
+          const freeCodes = Object.keys(CORE_SHIFTS).filter(c => c !== code && !usedCodes.includes(c));
+          if (freeCodes.length) {
+            schedule[conflict.name][d] = freeCodes[0];
+          } else {
+            // 空きコアシフトがなければ休みに(警告対象)
+            schedule[conflict.name][d] = YASUMI;
+            finalWarnings.push(`${d}日: 固定勤務(${s.name}=${code})により${conflict.name}を休みに変更しました`);
+          }
+        }
+      }
+
+      schedule[name][d] = code;
+    }
+  });
+
+  // 最終チェック
+  const juniorPairDays = [];
+  for (let day = 1; day <= DAYS; day++) {
+    const codesToday = staffList.map(s => schedule[s.name][day]);
+    Object.keys(CORE_SHIFTS).forEach(code => {
+      if (codesToday.filter(c => c === code).length < 1) {
+        finalWarnings.push(`${day}日: ${code} が 0/1 人しかいません`);
+      }
+    });
+    // 夜勤チェックはnightStaff(夜勤担当者全員)を見る
+    const nightCodesToday = nightStaff.map(s => schedule[s.name][day]);
+    if (nightCodesToday.filter(c => c === '夜').length < 1) {
+      finalWarnings.push(`${day}日: 夜 が 0/1 人しかいません`);
+    }
+
+    const nightPerson = nightStaff.find(s => schedule[s.name][day] === '夜');
+    const pPerson = staffList.find(s => schedule[s.name][day] === 'P');
+    if (nightPerson && pPerson && isJunior(nightPerson.name) && isJunior(pPerson.name)) {
+      juniorPairDays.push(day);
+    }
+  }
+  if (juniorPairDays.length) {
+    finalWarnings.push(`若手のみの組み合わせ(夜勤×P)になった日: ${juniorPairDays.join(', ')}日`);
+  }
+
+  // 連勤上限を超えてしまった箇所をチェック(原因を希望由来かどうかで分けて表示)
+  staffList.forEach(s => {
+    const name = s.name;
+    let run = 0;
+    let runStartDay = 1;
+    for (let day = 1; day <= DAYS; day++) {
+      const code = schedule[name][day];
+      if (isResting(code)) { run = 0; runStartDay = day + 1; continue; }
+      run++;
+      if (run > maxConsecutive) {
+        // この連勤の中に希望(requests)で固定された日が含まれているか確認
+        let causedByRequest = false;
+        for (let d = runStartDay; d <= day; d++) {
+          if (s.requests && s.requests[d] !== undefined) {
+            causedByRequest = true;
+            break;
+          }
+        }
+        if (causedByRequest) {
+          finalWarnings.push(`${name} ${day}日: 希望により${run}連勤になっています(上限${maxConsecutive}日)`);
+        } else {
+          finalWarnings.push(`${name} ${day}日: ${run}連勤になっています(上限${maxConsecutive}日、要確認)`);
+        }
+      }
+    }
+  });
+
+  // 希望が実際に反映されているかチェック
+  let requestConflicts = 0;
+  staffList.forEach(s => {
+    const name = s.name;
+    Object.keys(s.requests || {}).forEach(dayStr => {
+      const day = parseInt(dayStr, 10);
+      if (day < 1 || day > DAYS) return;
+      const req = s.requests[day];
+      const actual = schedule[name][day];
+      const expected = req === 'off' ? YASUMI : req;
+      if (actual !== expected) {
+        finalWarnings.push(`${name} ${day}日: 希望(${req === 'off' ? '休み' : req})が反映できませんでした(実際: ${actual}）`);
+        requestConflicts++;
+      }
+    });
+  });
+
+  return { schedule, warnings: finalWarnings, maxConsecutive, staffList };
+
+
+}
+
+
+// ===== データ保存・読込 =====
+const STORAGE_KEY_STAFF = 'shiftApp_staffData';
+const STORAGE_KEY_SETTINGS = 'shiftApp_settings';
+
+function saveData() {
+  try {
+    localStorage.setItem(STORAGE_KEY_STAFF, JSON.stringify(staffData));
+    const settings = {
+      year: document.getElementById('target-year').value,
+      month: document.getElementById('target-month').value,
+      minInterval: document.getElementById('min-interval').value,
+      maxConsecutive: document.getElementById('max-consecutive').value,
+      useA2: document.getElementById('use-a2-toggle')?.checked || false,
+    };
+    localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(settings));
+  } catch(e) { console.error('保存失敗:', e); }
+}
+
+function loadData() {
+  try {
+    const savedStaff = localStorage.getItem(STORAGE_KEY_STAFF);
+    if (savedStaff) {
+      staffData = JSON.parse(savedStaff);
+      // requestsが欠けている場合は補完
+      staffData.forEach(s => {
+        if (!s.requests) s.requests = {};
+        if (s.weeklyPattern === undefined) s.weeklyPattern = null;
+      });
+    }
+    const savedSettings = localStorage.getItem(STORAGE_KEY_SETTINGS);
+    if (savedSettings) {
+      const s = JSON.parse(savedSettings);
+      if (s.year) document.getElementById('target-year').value = s.year;
+      if (s.month) document.getElementById('target-month').value = s.month;
+      if (s.minInterval) {
+        document.getElementById('min-interval').value = s.minInterval;
+        document.getElementById('min-interval-out').textContent = s.minInterval + ' 日';
+      }
+      if (s.maxConsecutive) {
+        document.getElementById('max-consecutive').value = s.maxConsecutive;
+        document.getElementById('max-consecutive-out').textContent = s.maxConsecutive + ' 日';
+      }
+      const a2Toggle = document.getElementById('use-a2-toggle');
+      if (a2Toggle && s.useA2 !== undefined) a2Toggle.checked = s.useA2;
+    }
+    renderStaffList();
+    renderRequestGrid();
+  } catch(e) { console.error('読込失敗:', e); }
+}
+
+function clearData() {
+  if (!confirm('保存データを全て削除しますか？\nスタッフ情報・希望・設定が初期化されます。')) return;
+  localStorage.removeItem(STORAGE_KEY_STAFF);
+  localStorage.removeItem(STORAGE_KEY_SETTINGS);
+  location.reload();
+}
+
+function renderStaffList() {
+  const list = document.getElementById('staff-list');
+  list.innerHTML = '';
+  staffData.forEach((s, idx) => {
+    const row = document.createElement('div');
+    row.className = 'staff-row';
+
+    const nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.value = s.name;
+    nameInput.addEventListener('input', e => { staffData[idx].name = e.target.value; });
+
+    const yearsInput = document.createElement('input');
+    yearsInput.type = 'number';
+    yearsInput.min = '0';
+    yearsInput.max = '50';
+    yearsInput.value = s.years;
+    yearsInput.style.width = '54px';
+    yearsInput.title = '勤続年数';
+    yearsInput.addEventListener('input', e => { staffData[idx].years = parseInt(e.target.value, 10) || 0; });
+
+    const yearsLabel = document.createElement('span');
+    yearsLabel.textContent = '年';
+    yearsLabel.style.fontSize = '13px';
+    yearsLabel.style.color = '#555';
+
+    const label = document.createElement('label');
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = s.canNight;
+    checkbox.addEventListener('change', e => { staffData[idx].canNight = e.target.checked; });
+    label.appendChild(checkbox);
+    label.appendChild(document.createTextNode('夜勤可'));
+
+    // 1階用: canNight=false(井上さん等)には「夜勤は2階担当」バッジを表示
+    const nightBadge = document.createElement('span');
+    if (!s.canNight) {
+      nightBadge.textContent = '夜勤は2階担当';
+      nightBadge.style.cssText = 'font-size:11px; color:#fff; background:#2980b9; border-radius:3px; padding:2px 6px; margin-left:6px;';
+    }
+
+    const removeBtn = document.createElement('button');
+    removeBtn.textContent = '×';
+    removeBtn.addEventListener('click', () => {
+      staffData.splice(idx, 1);
+      renderStaffList();
+    });
+
+    // 固定勤務トグル
+    const fixedLabel = document.createElement('label');
+    fixedLabel.style.cssText = 'display:flex; align-items:center; gap:4px; cursor:pointer; margin-left:8px;';
+    const fixedToggle = document.createElement('input');
+    fixedToggle.type = 'checkbox';
+    fixedToggle.style.width = 'auto';
+    fixedToggle.checked = !!(s.weeklyPattern);
+    fixedLabel.appendChild(fixedToggle);
+    fixedLabel.appendChild(document.createTextNode('固定勤務'));
+
+    // 曜日ごとのシフト選択(固定勤務ONの時のみ表示)
+    const patternRow = document.createElement('div');
+    patternRow.style.cssText = 'display:flex; gap:4px; align-items:center; margin-top:4px; flex-wrap:wrap; padding-left:8px;';
+    patternRow.style.display = s.weeklyPattern ? 'flex' : 'none';
+
+    WEEKDAY_NAMES.forEach((wdName, wd) => {
+      const wdLabel = document.createElement('span');
+      wdLabel.textContent = wdName;
+      wdLabel.style.cssText = 'font-size:12px; color:#555; min-width:16px; text-align:center;';
+
+      const wdSel = document.createElement('select');
+      wdSel.style.cssText = 'padding:2px 2px; border:1px solid #ccc; border-radius:3px; font-size:12px;';
+      FIXED_SHIFT_OPTIONS.forEach(opt => {
+        const o = document.createElement('option');
+        o.value = opt;
+        o.textContent = opt || '指定なし';
+        wdSel.appendChild(o);
+      });
+      const currentVal = s.weeklyPattern ? (s.weeklyPattern[wd] || '') : '';
+      wdSel.value = currentVal;
+      wdSel.addEventListener('change', e => {
+        if (!staffData[idx].weeklyPattern) staffData[idx].weeklyPattern = {};
+        staffData[idx].weeklyPattern[wd] = e.target.value || null;
+      });
+      patternRow.appendChild(wdLabel);
+      patternRow.appendChild(wdSel);
+    });
+
+    fixedToggle.addEventListener('change', e => {
+      if (e.target.checked) {
+        staffData[idx].weeklyPattern = {0:null,1:null,2:null,3:null,4:null,5:null,6:null};
+        patternRow.style.display = 'flex';
+      } else {
+        staffData[idx].weeklyPattern = null;
+        patternRow.style.display = 'none';
+      }
+    });
+
+    row.appendChild(nameInput);
+    row.appendChild(yearsInput);
+    row.appendChild(yearsLabel);
+    row.appendChild(label);
+    if (!s.canNight) row.appendChild(nightBadge);
+    row.appendChild(fixedLabel);
+    list.appendChild(row);
+    list.appendChild(patternRow);
+  });
+
+  renderRequestGrid();
+  saveData();
+}
+
+// --- 公休希望・勤務希望のUI(全員一覧テーブル + クリックでドロップダウン) ---
+function getRequestOptions() {
+  const useA2 = document.getElementById('use-a2-toggle')?.checked;
+  return [
+    { value: '', label: '指定なし' },
+    { value: 'off', label: '休み希望' },
+    { value: '早', label: '早番希望' },
+    useA2 ? { value: 'A2', label: 'A2希望' } : { value: 'B', label: 'B希望' },
+    { value: 'C', label: 'C希望' },
+    { value: 'F', label: 'F希望' },
+    { value: 'P', label: 'P希望' },
+    { value: '夜', label: '夜勤希望' },
+    { value: '友A', label: '友A希望' },
+    { value: '友P', label: '友P希望' },
+  ];
+}
+
+function closeRequestDropdown() {
+  const existing = document.getElementById('request-dropdown-popup');
+  if (existing) existing.remove();
+}
+
+function openRequestDropdown(cellEl, staff, day) {
+  closeRequestDropdown();
+
+  const popup = document.createElement('div');
+  popup.id = 'request-dropdown-popup';
+  popup.style.cssText = `
+    position: absolute;
+    z-index: 1000;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    padding: 4px;
+    min-width: 110px;
+  `;
+
+  const rect = cellEl.getBoundingClientRect();
+  popup.style.top = (window.scrollY + rect.bottom + 4) + 'px';
+  popup.style.left = (window.scrollX + rect.left) + 'px';
+
+  getRequestOptions().forEach(opt => {
+    const item = document.createElement('div');
+    item.textContent = opt.label;
+    item.style.cssText = `
+      padding: 6px 10px;
+      font-size: 13px;
+      cursor: pointer;
+      border-radius: 4px;
+      color: #222;
+    `;
+    const isCurrent = (staff.requests[day] || '') === opt.value;
+    if (isCurrent) {
+      item.style.background = '#eef3ff';
+      item.style.fontWeight = '600';
+    }
+    item.addEventListener('mouseenter', () => { item.style.background = '#f0f0f0'; });
+    item.addEventListener('mouseleave', () => { item.style.background = isCurrent ? '#eef3ff' : '#fff'; });
+    item.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (opt.value === '') {
+        delete staff.requests[day];
+      } else {
+        staff.requests[day] = opt.value;
+      }
+      closeRequestDropdown();
+      renderRequestGrid();
+      saveData();
+    });
+    popup.appendChild(item);
+  });
+
+  document.body.appendChild(popup);
+
+  // 外側クリックで閉じる
+  setTimeout(() => {
+    document.addEventListener('click', closeRequestDropdown, { once: true });
+  }, 0);
+}
+
+function renderRequestGrid() {
+  const container = document.getElementById('request-grid');
+  container.innerHTML = '';
+  closeRequestDropdown();
+
+  const targetYear = parseInt(document.getElementById('target-year').value, 10);
+  const targetMonth = parseInt(document.getElementById('target-month').value, 10);
+  const daysInMonth = getDaysInMonth(targetYear, targetMonth);
+
+  const table = document.createElement('table');
+
+  // ヘッダー行: 氏名 + 日付
+  const thead = document.createElement('tr');
+  const thName = document.createElement('th');
+  thName.textContent = '氏名';
+  thName.className = 'name';
+  thead.appendChild(thName);
+  for (let d = 1; d <= daysInMonth; d++) {
+    const th = document.createElement('th');
+    th.textContent = d;
+    const wd = getWeekday(targetYear, targetMonth, d);
+    if (wd === 0) th.classList.add('cell-sun');
+    if (wd === 6) th.classList.add('cell-sat');
+    thead.appendChild(th);
+  }
+  table.appendChild(thead);
+
+  // 各スタッフの行
+  staffData.forEach(staff => {
+    const tr = document.createElement('tr');
+    const tdName = document.createElement('td');
+    tdName.textContent = staff.name;
+    tdName.className = 'name';
+    tr.appendChild(tdName);
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const td = document.createElement('td');
+      td.style.cursor = 'pointer';
+      td.style.minWidth = '30px';
+      const current = staff.requests[d];
+      if (current === 'off') {
+        td.textContent = '休';
+        td.classList.add('req-off');
+      } else if (current) {
+        td.textContent = current;
+        td.classList.add('req-shift');
+      } else {
+        td.textContent = '';
+      }
+      td.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openRequestDropdown(td, staff, d);
+      });
+      tr.appendChild(td);
+    }
+    table.appendChild(tr);
+  });
+
+  container.appendChild(table);
+}
+
+document.getElementById('target-year').addEventListener('change', renderRequestGrid);
+document.getElementById('target-month').addEventListener('change', renderRequestGrid);
+document.getElementById('use-a2-toggle').addEventListener('change', () => {
+  // B<->A2の切替に伴い、既存の希望に残ったB/A2指定を新しい方の表記へ変換
+  const useA2 = document.getElementById('use-a2-toggle').checked;
+  staffData.forEach(s => {
+    Object.keys(s.requests || {}).forEach(dayStr => {
+      const day = parseInt(dayStr, 10);
+      if (useA2 && s.requests[day] === 'B') s.requests[day] = 'A2';
+      if (!useA2 && s.requests[day] === 'A2') s.requests[day] = 'B';
+    });
+  });
+  renderRequestGrid();
+});
+
+document.getElementById('add-staff').addEventListener('click', () => {
+  staffData.push({ name: '新規' + (staffData.length + 1), canNight: true, years: 1, requests: {}, floor: 1, nightFloor: 1 });
+  renderStaffList();
+});
+
+document.getElementById('min-interval').addEventListener('input', e => {
+  document.getElementById('min-interval-out').textContent = e.target.value + ' 日';
+  saveData();
+});
+document.getElementById('max-consecutive').addEventListener('input', e => {
+  document.getElementById('max-consecutive-out').textContent = e.target.value + ' 日';
+  saveData();
+});
+
+function isResting(code) {
+  return code === YASUMI || code === AKE;
+}
+
+function hasTooManyConsecutive(schedule, name, day, maxConsecutive) {
+  let count = 0;
+  for (let d = day - 1; d >= Math.max(1, day - maxConsecutive); d--) {
+    const code = schedule[name][d];
+    if (code === '') continue;
+    if (isResting(code)) break;
+    count++;
+  }
+  return count >= maxConsecutive;
+}
+
+function nightTotal(schedule, name) {
+  let c = 0;
+  for (let d = 1; d <= DAYS; d++) if (schedule[name][d] === '夜') c++;
+  return c;
+}
+
+
+
+
+function cellClass(code) {
+  if (code === '夜') return 'cell-夜';
+  if (code === AKE) return 'cell-明';
+  if (code === YASUMI) return 'cell-休';
+  if (code === '友A' || code === '友P') return 'cell-友';
+  if (code === NICHI_SHIFT_CODE) return 'cell-日';
+  return '';
+}
+
+function renderResult(result) {
+  const { schedule, warnings, maxConsecutive, staffList } = result;
+  document.getElementById('result-wrap').style.display = 'block';
+  const warnDiv = document.getElementById('warnings');
+  if (warnings.length) {
+    warnDiv.style.display = 'block';
+    warnDiv.style.background = '#fdecea'; warnDiv.style.color = '#a33';
+    warnDiv.innerHTML = '<strong>未充足あり:</strong> ' + warnings.slice(0,8).join(' / ') + (warnings.length > 8 ? ` 他${warnings.length-8}件` : '');
+  } else {
+    warnDiv.style.display = 'block';
+    warnDiv.style.background = '#e6f4ea'; warnDiv.style.color = '#1e6b3a';
+    warnDiv.innerHTML = `必須シフトはすべて満たされています(最大${maxConsecutive}連勤以内)`;
+  }
+  const targetYear = parseInt(document.getElementById('target-year').value, 10);
+  const targetMonth = parseInt(document.getElementById('target-month').value, 10);
+  document.getElementById('result-title').textContent = `${targetYear}年${targetMonth}月 シフト表`;
+  const tableWrap = document.getElementById('result-table');
+  tableWrap.innerHTML = '';
+  const table = document.createElement('table');
+  const thead = document.createElement('tr');
+  const thName = document.createElement('th');
+  thName.textContent = '氏名'; thName.className = 'name'; thName.rowSpan = 2;
+  thead.appendChild(thName);
+  for (let d = 1; d <= DAYS; d++) {
+    const th = document.createElement('th'); th.textContent = d;
+    const wd = getWeekday(targetYear, targetMonth, d);
+    if (wd === 0) th.classList.add('cell-sun');
+    if (wd === 6) th.classList.add('cell-sat');
+    thead.appendChild(th);
+  }
+  table.appendChild(thead);
+  const weekRow = document.createElement('tr');
+  for (let d = 1; d <= DAYS; d++) {
+    const th = document.createElement('th');
+    const wd = getWeekday(targetYear, targetMonth, d);
+    th.textContent = WEEKDAY_LABELS[wd];
+    th.style.fontWeight = '400'; th.style.fontSize = '11px';
+    if (wd === 0) th.classList.add('cell-sun');
+    if (wd === 6) th.classList.add('cell-sat');
+    weekRow.appendChild(th);
+  }
+  table.appendChild(weekRow);
+  staffList.forEach(s => {
+    const tr = document.createElement('tr');
+    const tdName = document.createElement('td');
+    tdName.textContent = s.name; tdName.className = 'name';
+    tr.appendChild(tdName);
+    for (let d = 1; d <= DAYS; d++) {
+      const td = document.createElement('td');
+      const code = schedule[s.name][d];
+      td.textContent = code;
+      const cc = cellClass(code);
+      if (cc) { td.className = cc; } else {
+        const wd = getWeekday(targetYear, targetMonth, d);
+        if (wd === 0) td.classList.add('cell-sun');
+        if (wd === 6) td.classList.add('cell-sat');
+      }
+      // 希望が入っているセルに印をつける
+      const req = s.requests && s.requests[d];
+      if (req === 'off') {
+        td.classList.add('cell-req-off');
+      } else if (req) {
+        td.classList.add('cell-req-shift');
+      }
+      tr.appendChild(td);
+    }
+    table.appendChild(tr);
+  });
+  tableWrap.appendChild(table);
+  const grid = document.getElementById('summary-grid');
+  grid.innerHTML = '';
+  const allCodes = [...Object.keys(CORE_SHIFTS), '夜', AKE, ...Object.keys(SUPPORT_SHIFTS), YASUMI];
+  staffList.forEach(s => {
+    const row = schedule[s.name];
+    if (!row) return;
+    const counts = {}; allCodes.forEach(c => { counts[c] = 0; });
+    let maxRun = 0, run = 0;
+    for (let d = 1; d <= DAYS; d++) {
+      const code = row[d];
+      if (counts[code] !== undefined) counts[code]++;
+      if (isResting(code)) { run = 0; } else { run++; maxRun = Math.max(maxRun, run); }
+    }
+    const hours = calcMonthlyHours(schedule, s.name);
+    const diff = hours - TARGET_MONTHLY_HOURS;
+    const diffLabel = diff === 0 ? '±0h' : (diff > 0 ? `+${diff}h` : `${diff}h`);
+    const diffColor = diff === 0 ? '#1e6b3a' : (Math.abs(diff) <= 8 ? '#a87a00' : '#a33');
+    const breakdown = allCodes.filter(c => counts[c] > 0)
+      .map(c => `<span style="display:inline-block;margin:2px 6px 0 0;">${c} <strong>${counts[c]}</strong></span>`).join('');
+    const card = document.createElement('div');
+    card.className = 'summary-card';
+    card.innerHTML = `<div class="label">${s.name}</div>` +
+      `<div class="value" style="margin-top:2px;">${hours}h <span style="font-size:12px;color:${diffColor};font-weight:500;">(目標168h ${diffLabel})</span></div>` +
+      `<div class="sub" style="margin-top:4px;">${breakdown}</div>` +
+      `<div class="sub" style="margin-top:4px;">最大連勤 ${maxRun}日</div>`;
+    grid.appendChild(card);
+  });
+}
+
+document.getElementById('generate-btn').addEventListener('click', () => {
+  if (staffData.length === 0) return;
+  const result = generateSchedule();
+  lastSchedule = result.schedule;
+  lastStaff = [...(result.staffList || staffData)];
+  renderResult(result);
+});
+
+document.getElementById('export-btn').addEventListener('click', () => {
+  if (!lastSchedule) { alert('先に「シフトを生成」を実行してください'); return; }
+  let csv = '氏名,' + Array.from({length: DAYS}, (_, i) => i + 1).join(',') + '\n';
+  lastStaff.forEach(s => {
+    const row = [s.name];
+    for (let d = 1; d <= DAYS; d++) row.push(lastSchedule[s.name][d] || '');
+    csv += row.join(',') + '\n';
+  });
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const year = document.getElementById('target-year').value;
+  const month = document.getElementById('target-month').value;
+  a.download = `shift_${year}_${String(month).padStart(2,'0')}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+loadData();
+</script>
+</body>
+</html>
